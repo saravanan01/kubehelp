@@ -1,0 +1,39 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show deployment status",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Status command not yet implemented.")
+	},
+}
+
+var logsCmd = &cobra.Command{
+	Use:   "logs",
+	Short: "Fetch pod logs",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Logs command not yet implemented.")
+	},
+}
+
+var eventsCmd = &cobra.Command{
+	Use:   "events",
+	Short: "Show recent events",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Events command not yet implemented.")
+	},
+}
+
+var describeCmd = &cobra.Command{
+	Use:   "describe",
+	Short: "Describe a resource",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Describe command not yet implemented.")
+	},
+}
