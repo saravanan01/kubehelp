@@ -38,7 +38,10 @@ go build -o kubehelp ./cmd/...          # Build the CLI
 - `KUBEHELP_API_KEY` or `OPENAI_API_KEY` — LLM provider API key (required for OpenAI)
 - `GEMINI_API_KEY` — Google Gemini API key (required for Gemini)
 - `GEMINI_MODEL` — Gemini model name (default: gemini-pro)
-- `OLLAMA_MODEL` — Ollama model name (default: llama2)
+- `VERTEX_AI_PROJECT_ID` — GCP project ID for Vertex AI (auto-detected from gcloud config)
+- `VERTEX_AI_LOCATION` — Vertex AI location/region (default: us-central1)
+- `VERTEX_AI_MODEL` — Vertex AI model name (default: gemini-pro)
+- `OLLAMA_MODEL` — Ollama model name (default: mistral)
 - `OLLAMA_BASE_URL` — Ollama server URL (default: http://localhost:11434)
 - `KUBECONFIG` — Path to kubeconfig (optional, defaults to ~/.kube/config)
 
@@ -75,10 +78,11 @@ go build -o kubehelp ./cmd/...          # Build the CLI
 - Aggregator filters events by time (last hour) and severity (Warning/Error)
 
 ### LLM Providers
-- Abstract interface allows multiple providers (OpenAI, Gemini, Ollama)
+- Abstract interface allows multiple providers (OpenAI, Gemini, Vertex AI, Ollama)
 - **Default provider: Ollama (local, no API key required)**
 - OpenAI with GPT-4 (requires OPENAI_API_KEY)
 - Google Gemini with gemini-pro (requires GEMINI_API_KEY)
+- Google Vertex AI with gemini-pro (requires gcloud auth, uses Application Default Credentials)
 - Ollama supports local models (llama2, mistral, etc.)
 - Timeout: 60s for cloud, 120s for local models
 - Prompts include system message defining expert role
@@ -108,6 +112,9 @@ kubehelp diagnose -n prod --llm openai
 # Use Google Gemini
 kubehelp diagnose -n prod --llm gemini
 
+# Use Google Vertex AI (enterprise GCP)
+kubehelp diagnose -n prod --llm vertexai
+
 # Show raw diagnostic data before LLM analysis
 kubehelp diagnose -n dev --verbose
 
@@ -129,10 +136,17 @@ kubehelp diagnose -n prod --kubeconfig ~/.kube/prod-config --context prod-us-wes
 
 ## Key Files Reference
 - `cmd/main.go` — Registers all subcommands
-- `cmd/diagnose.go` — Main diagnose command implementation (~120 lines)
+- `cmd/diagnose.go` — Main diagnose command implementation with all LLM providers (~170 lines)
+- `cmd/server/main.go` — HTTP REST API server for web service deployment (~180 lines)
 - `internal/k8s/aggregator.go` — Data collection logic (~250 lines)
 - `internal/llm/prompts.go` — Prompt engineering and formatting (~150 lines)
 - `internal/llm/openai.go` — OpenAI API client (~90 lines)
+- `internal/llm/gemini.go` — Google Gemini API client (~90 lines)
+- `internal/llm/vertexai.go` — Google Vertex AI client with OAuth (~120 lines)
+- `internal/llm/ollama.go` — Ollama local client (~80 lines)
+- `docs/VERTEXAI.md` — Vertex AI setup and authentication guide
+- `docs/GEMINI.md` — Gemini API setup guide
+- `docs/SERVER.md` — HTTP server deployment guide
 
 ## Adding New Features
 

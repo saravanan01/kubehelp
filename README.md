@@ -5,11 +5,11 @@ A command-line tool that uses Large Language Models (LLMs) to help troubleshoot 
 ## Features
 
 - 🔍 **Automated Diagnostics**: Collects pod status, container states, and events from K8s namespaces
-- 🤖 **AI Analysis**: Uses LLMs (Ollama, Google Gemini, OpenAI GPT-4) to analyze issues and suggest fixes
+- 🤖 **AI Analysis**: Uses LLMs (Ollama, Google Gemini, Vertex AI, OpenAI GPT-4) to analyze issues and suggest fixes
 - 🎯 **Targeted Troubleshooting**: Focus on specific workloads or entire namespaces
 - 📋 **Actionable Output**: Get root cause analysis, remediation steps, and kubectl commands
 - ⚡ **Easy Setup**: Works with your existing kubeconfig
-- 🆓 **Multiple LLM Options**: Free local (Ollama) or cloud-based (Gemini free tier, OpenAI paid)
+- 🆓 **Multiple LLM Options**: Free local (Ollama) or cloud-based (Gemini free tier, Vertex AI, OpenAI paid)
 
 ## Quick Start
 
@@ -20,6 +20,7 @@ A command-line tool that uses Large Language Models (LLMs) to help troubleshoot 
 - **Choose one LLM provider**:
   - **Ollama** (recommended) - Free, local, no API key needed
   - **Google Gemini** - Free tier available, requires API key
+  - **Google Vertex AI** - Enterprise GCP option, requires gcloud auth
   - **OpenAI** - Paid, requires API key
 
 ### Install Ollama (Recommended)
@@ -81,6 +82,17 @@ Set your Gemini API key:
 export GEMINI_API_KEY="your-api-key-here"
 ```
 
+**Option 4: Use Google Vertex AI (Enterprise GCP)**
+
+Set up Google Cloud authentication:
+
+```bash
+gcloud auth application-default login
+export VERTEX_AI_PROJECT_ID="your-project-id"
+```
+
+See [docs/VERTEXAI.md](docs/VERTEXAI.md) for complete setup.
+
 ### Usage
 
 ```bash
@@ -98,6 +110,9 @@ kubehelp diagnose -n prod --llm openai
 
 # Use Google Gemini
 kubehelp diagnose -n prod --llm gemini
+
+# Use Google Vertex AI (enterprise)
+kubehelp diagnose -n prod --llm vertexai
 
 # Show verbose diagnostic data
 kubehelp diagnose -n dev --verbose
@@ -166,15 +181,27 @@ kubehelp/
 ├── cmd/
 │   ├── main.go          # CLI entry point
 │   ├── commands.go      # Basic subcommands (status, logs, events)
-│   └── diagnose.go      # Main AI diagnostic command
+│   ├── diagnose.go      # Main AI diagnostic command
+│   └── server/
+│       └── main.go      # HTTP server for web service deployment
 ├── internal/
 │   ├── k8s/
 │   │   ├── client.go    # Kubernetes client wrapper
 │   │   └── aggregator.go # Diagnostic data collector
-│   └── llm/
-│       ├── provider.go  # LLM provider interface
-│       ├── openai.go    # OpenAI implementation
-│       └── prompts.go   # Prompt engineering
+   └── llm/
+       ├── provider.go  # LLM provider interface
+       ├── openai.go    # OpenAI implementation
+       ├── gemini.go    # Google Gemini implementation
+       ├── vertexai.go  # Google Vertex AI implementation
+       ├── ollama.go    # Ollama implementation
+       └── prompts.go   # Prompt engineering
+├── k8s/
+│   └── deployment.yaml  # Kubernetes deployment manifests
+├── docs/
+│   ├── GEMINI.md        # Gemini setup guide
+│   ├── VERTEXAI.md      # Vertex AI setup guide
+│   └── SERVER.md        # Server deployment guide
+├── Dockerfile           # Container image definition
 └── .github/
     └── copilot-instructions.md # AI coding agent guidelines
 ```
@@ -184,9 +211,47 @@ kubehelp/
 ### Building
 
 ```bash
+# Build CLI
 go mod tidy
 go build -o kubehelp ./cmd/...
+
+# Or use Makefile
+make build
+
+# Build server
+make build-server
 ```
+
+### Running as Web Service
+
+```bash
+# Run server locally
+make run-server
+
+# Or run directly
+go run ./cmd/server
+
+# Test the API
+curl http://localhost:8080/api/health
+curl -X POST http://localhost:8080/api/diagnose \
+   -H "Content-Type: application/json" \
+   -d '{"namespace": "default", "llm": "ollama"}'
+```
+# Run with Docker (build first)
+docker build -t kubehelp-server:latest .
+docker run -p 8080:8080 \
+   -v $HOME/.kube:/root/.kube:ro \
+   -e OLLAMA_MODEL=mistral \
+   kubehelp-server:latest
+
+# Use different LLM provider (example: gemini)
+docker run -p 8080:8080 \
+   -v $HOME/.kube:/root/.kube:ro \
+   -e GEMINI_API_KEY=$GEMINI_API_KEY \
+   -e KUBEHELP_LLM_PROVIDER=gemini \
+   kubehelp-server:latest
+
+See [docs/SERVER.md](docs/SERVER.md) for complete server deployment guide.
 
 ### Testing
 
@@ -218,33 +283,37 @@ go test ./...
 
 ## Environment Variables
 
-| Variable           | Description                             | Default                  |
-| ------------------ | --------------------------------------- | ------------------------ |
-| `OLLAMA_MODEL`     | Ollama model to use                     | `llama2`                 |
-| `OLLAMA_BASE_URL`  | Ollama server URL                       | `http://localhost:11434` |
-| `KUBEHELP_API_KEY` | Generic API key for cloud LLM providers | -                        |
-| `OPENAI_API_KEY`   | OpenAI-specific API key                 | -                        |
-| `GEMINI_API_KEY`   | Google Gemini API key                   | -                        |
-| `GEMINI_MODEL`     | Gemini model to use                     | `gemini-pro`             |
-| `KUBECONFIG`       | Path to kubeconfig file                 | `~/.kube/config`         |
+| Variable               | Description                             | Default                  |
+| ---------------------- | --------------------------------------- | ------------------------ |
+| `OLLAMA_MODEL`         | Ollama model to use                     | `mistral` (recommended)  |
+| `OLLAMA_BASE_URL`      | Ollama server URL                       | `http://localhost:11434` |
+| `KUBEHELP_API_KEY`     | Generic API key for cloud LLM providers | -                        |
+| `OPENAI_API_KEY`       | OpenAI-specific API key                 | -                        |
+| `GEMINI_API_KEY`       | Google Gemini API key                   | -                        |
+| `GEMINI_MODEL`         | Gemini model to use                     | `gemini-pro`             |
+| `VERTEX_AI_PROJECT_ID` | GCP project ID for Vertex AI            | Auto-detected            |
+| `VERTEX_AI_LOCATION`   | Vertex AI location/region               | `us-central1`            |
+| `VERTEX_AI_MODEL`      | Vertex AI model name                    | `gemini-pro`             |
+| `KUBECONFIG`           | Path to kubeconfig file                 | `~/.kube/config`         |
 
 ## Command-Line Flags
 
 ### `diagnose` command
 
-| Flag           | Short | Description                          | Default         |
-| -------------- | ----- | ------------------------------------ | --------------- |
-| `--namespace`  | `-n`  | Target namespace                     | `default`       |
-| `--workload`   | `-w`  | Specific workloads (comma-separated) | All workloads   |
-| `--verbose`    | -     | Show raw diagnostic data             | `false`         |
-| `--llm`        | -     | LLM provider (openai, ollama)        | `ollama`        |
-| `--kubeconfig` | -     | Path to kubeconfig                   | `$KUBECONFIG`   |
-| `--context`    | -     | Kubernetes context to use            | Current context |
+| Flag           | Short | Description                                     | Default         |
+| -------------- | ----- | ----------------------------------------------- | --------------- |
+| `--namespace`  | `-n`  | Target namespace                                | `default`       |
+| `--workload`   | `-w`  | Specific workloads (comma-separated)            | All workloads   |
+| `--verbose`    | -     | Show raw diagnostic data                        | `false`         |
+| `--llm`        | -     | LLM provider (ollama, gemini, vertexai, openai) | `ollama`        |
+| `--kubeconfig` | -     | Path to kubeconfig                              | `$KUBECONFIG`   |
+| `--context`    | -     | Kubernetes context to use                       | Current context |
 
 ## Roadmap
 
 - [x] Add support for local LLMs (Ollama)
 - [x] Add support for Google Gemini
+- [x] Add support for Google Vertex AI
 - [ ] Add support for Anthropic Claude
 - [ ] Implement caching to reduce API calls
 - [ ] Add log analysis capabilities
@@ -271,4 +340,92 @@ For issues, questions, or contributions, please [open an issue](link-to-issues).
 
 ---
 
-Built with ❤️ using Go, Kubernetes client-go, and OpenAI
+Built with ❤️ using Go, Kubernetes client-go, and LLMs
+
+---
+
+## Development Workflow
+
+```bash
+# Format code
+go fmt ./...
+
+# Lint / vet
+go vet ./...
+
+# Build CLI & server
+make build
+make build-server
+
+# Run server
+make run-server
+
+# Run tests (when implemented)
+go test ./...
+```
+
+## Recommended Ollama Models
+
+| Model     | Size  | Notes                                   |
+| --------- | ----- | --------------------------------------- |
+| mistral   | ~4GB  | Balanced quality & speed (default here) |
+| llama2    | ~3.8G | Stable general model                    |
+| codellama | ~3.8G | Better for code / technical prompts     |
+| llama3    | ~4.7G | Newer, improved reasoning               |
+
+Pull & use:
+```bash
+ollama pull mistral
+OLLAMA_MODEL=mistral kubehelp diagnose -n production
+```
+
+## File Overview
+
+```
+.
+├── cmd/                 # CLI & server entrypoints
+│   ├── main.go
+│   ├── diagnose.go
+│   └── server/main.go
+├── internal/
+│   ├── k8s/             # Kubernetes access & aggregation
+│   │   ├── client.go
+│   │   └── aggregator.go
+│   └── llm/             # LLM providers & prompt engineering
+│       ├── provider.go
+│       ├── ollama.go
+│       ├── openai.go
+│       ├── gemini.go
+│       ├── vertexai.go
+│       └── prompts.go
+├── web/                 # Static web UI (HTML/JS)
+├── docs/                # Provider & server docs
+├── Dockerfile           # Container build
+├── Makefile             # Common tasks
+└── .github/copilot-instructions.md
+```
+
+## Docker Usage Quick Reference
+
+```bash
+# Build image
+docker build -t kubehelp-server:latest .
+
+# Run with mounted kubeconfig (read-only)
+docker run -p 8080:8080 -v $HOME/.kube:/root/.kube:ro kubehelp-server:latest
+
+# Check health
+curl http://localhost:8080/api/health
+
+# Run diagnose
+curl -X POST http://localhost:8080/api/diagnose \
+   -H 'Content-Type: application/json' \
+   -d '{"namespace":"default","llm":"ollama"}'
+```
+
+## Notes
+- Web UI served at `/` (static files)
+- API endpoints under `/api/*`
+- For Vertex AI ensure `gcloud auth application-default login` completed locally before docker run (mounting ADC credentials or run inside environment with access).
+- Avoid embedding secrets in the image; supply via `-e` flags.
+

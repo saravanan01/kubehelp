@@ -5,6 +5,7 @@
 *.so
 *.dylib
 kubehelp
+kubehelp-server
 
 # Test binary, built with `go test -c`
 *.test

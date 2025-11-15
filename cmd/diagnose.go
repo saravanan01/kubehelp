@@ -31,12 +31,15 @@ The command gathers pod status, container states, and recent events, then
 sends this information to an LLM for analysis.
 
 Environment variables:
-  KUBEHELP_LLM_PROVIDER - LLM provider (openai, gemini, ollama)
+  KUBEHELP_LLM_PROVIDER - LLM provider (openai, gemini, ollama, vertexai)
   KUBEHELP_API_KEY      - API key for cloud LLM providers
   GEMINI_API_KEY        - Google Gemini API key
   GEMINI_MODEL          - Gemini model to use (default: gemini-pro)
-  OLLAMA_MODEL          - Ollama model to use (default: llama2)
+  OLLAMA_MODEL          - Ollama model to use (default: mistral)
   OLLAMA_BASE_URL       - Ollama server URL (default: http://localhost:11434)
+  VERTEX_AI_PROJECT_ID  - GCP project ID for Vertex AI
+  VERTEX_AI_LOCATION    - Vertex AI location (default: us-central1)
+  VERTEX_AI_MODEL       - Vertex AI model (default: gemini-pro)
   KUBECONFIG            - Path to kubeconfig file`,
 	Example: `  # Analyze entire namespace
   kubehelp diagnose -n production
@@ -50,6 +53,9 @@ Environment variables:
   # Use Google Gemini
   kubehelp diagnose -n prod --llm gemini
 
+  # Use Google Vertex AI
+  kubehelp diagnose -n prod --llm vertexai
+
   # Use custom Ollama model
   OLLAMA_MODEL=mistral kubehelp diagnose -n prod
 
@@ -62,7 +68,7 @@ func init() {
 	diagnoseCmd.Flags().StringVarP(&diagNamespace, "namespace", "n", "default", "Target namespace to diagnose")
 	diagnoseCmd.Flags().StringSliceVarP(&diagWorkloads, "workload", "w", []string{}, "Specific workloads to analyze (comma-separated)")
 	diagnoseCmd.Flags().BoolVar(&diagVerbose, "verbose", false, "Show raw diagnostic data before analysis")
-	diagnoseCmd.Flags().StringVar(&diagLLMProvider, "llm", "ollama", "LLM provider: openai, gemini, ollama")
+	diagnoseCmd.Flags().StringVar(&diagLLMProvider, "llm", "ollama", "LLM provider: openai, gemini, ollama, vertexai")
 	diagnoseCmd.Flags().StringVar(&diagKubeconfig, "kubeconfig", "", "Path to kubeconfig file (default: $KUBECONFIG or ~/.kube/config)")
 	diagnoseCmd.Flags().StringVar(&diagContext, "context", "", "Kubernetes context to use")
 }
@@ -111,8 +117,8 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// API key not required for Ollama (local)
-	if apiKey == "" && diagLLMProvider != "ollama" {
+	// API key not required for Ollama (local) or VertexAI (uses ADC)
+	if apiKey == "" && diagLLMProvider != "ollama" && diagLLMProvider != "vertexai" {
 		return fmt.Errorf("API key not found. Set KUBEHELP_API_KEY or %s_API_KEY environment variable",
 			strings.ToUpper(diagLLMProvider))
 	}
@@ -133,15 +139,21 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		// Get model and base URL from env or use defaults
 		model := os.Getenv("OLLAMA_MODEL")
 		if model == "" {
-			model = "llama2" // default model
+			model = "mistral" // default model
 		}
 		baseURL := os.Getenv("OLLAMA_BASE_URL")
 		if baseURL == "" {
 			baseURL = "http://localhost:11434" // default Ollama URL
 		}
 		provider = llm.NewOllamaProvider(model, baseURL)
+	case "vertexai":
+		vertexProvider, err := llm.NewVertexAIProviderFromEnv()
+		if err != nil {
+			return fmt.Errorf("failed to create Vertex AI provider: %w", err)
+		}
+		provider = vertexProvider
 	default:
-		return fmt.Errorf("unsupported LLM provider: %s (supported: openai, gemini, ollama)", diagLLMProvider)
+		return fmt.Errorf("unsupported LLM provider: %s (supported: openai, gemini, ollama, vertexai)", diagLLMProvider)
 	}
 
 	fmt.Printf("🤖 Analyzing with %s...\n\n", provider.Name())

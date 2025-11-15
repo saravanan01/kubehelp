@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeHelp - AI-Powered Kubernetes Troubleshooting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .results h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .analysis {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .diagnostic-data {
+            margin-top: 20px;
+        }
+
+        .diagnostic-data h3 {
+            color: #555;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .data-section {
+            margin-bottom: 20px;
+        }
+
+        .pod-item,
+        .event-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .pod-item strong,
+        .event-item strong {
+            color: #667eea;
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44336;
+            padding: 20px;
+            border-radius: 8px;
+            color: #d32f2f;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .badge-error {
+            background: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 KubeHelp</h1>
+            <p>AI-Powered Kubernetes Troubleshooting</p>
+        </div>
+
+        <div class="card">
+            <form id="diagnoseForm">
+                <div class="grid">
+                    <div class="form-group">
+                        <label for="namespace">Namespace *</label>
+                        <input type="text" id="namespace" name="namespace" value="default" required>
+                        <div class="help-text">Kubernetes namespace to analyze</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="llm">LLM Provider</label>
+                        <select id="llm" name="llm">
+                            <option value="ollama">Ollama (Local, Free)</option>
+                            <option value="gemini">Google Gemini (Cloud)</option>
+                            <option value="vertexai">Google Vertex AI (Enterprise)</option>
+                            <option value="openai">OpenAI GPT-4 (Cloud)</option>
+                        </select>
+                        <div class="help-text">Choose the AI provider for analysis</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="workloads">Workloads (Optional)</label>
+                    <input type="text" id="workloads" name="workloads" placeholder="api-server,worker,database">
+                    <div class="help-text">Comma-separated list of workload names to focus on (leave empty for all)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="context">Kubernetes Context (Optional)</label>
+                    <input type="text" id="context" name="context" placeholder="minikube">
+                    <div class="help-text">Specific kubeconfig context to use (leave empty for current context)</div>
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">
+                    🚀 Analyze Cluster
+                </button>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing your Kubernetes cluster... This may take 30-60 seconds.</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="results card" id="results">
+            <h2>
+                <span>✨ Analysis Results</span>
+            </h2>
+
+            <div class="analysis" id="analysis"></div>
+
+            <div class="diagnostic-data" id="diagnosticData">
+                <h3>📊 Diagnostic Data</h3>
+                <div class="data-section" id="podsSection"></div>
+                <div class="data-section" id="eventsSection"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('diagnoseForm');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+        const submitBtn = document.getElementById('submitBtn');
+        const analysisDiv = document.getElementById('analysis');
+        const diagnosticDataDiv = document.getElementById('diagnosticData');
+        const podsSection = document.getElementById('podsSection');
+        const eventsSection = document.getElementById('eventsSection');
+
+        // Get API URL from environment or default to localhost
+        const API_URL = window.location.origin;
+
+        // Security: Sanitize HTML to prevent XSS attacks
+        function sanitizeHTML(str) {
+            if (!str) return '';
+            const temp = document.createElement('div');
+            temp.textContent = str;
+            return temp.innerHTML;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide previous results/errors
+            results.classList.remove('active');
+            error.classList.remove('active');
+            loading.classList.add('active');
+            submitBtn.disabled = true;
+
+            // Gather form data
+            const formData = {
+                namespace: document.getElementById('namespace').value,
+                llm: document.getElementById('llm').value,
+            };
+
+            // Add optional fields
+            const workloads = document.getElementById('workloads').value;
+            if (workloads) {
+                formData.workloads = workloads.split(',').map(w => w.trim()).filter(w => w);
+            }
+
+            const context = document.getElementById('context').value;
+            if (context) {
+                formData.context = context;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/diagnose`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `Server returned ${response.status}`);
+                }
+
+                // Display results
+                displayResults(data);
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                loading.classList.remove('active');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function displayResults(data) {
+            // Display analysis (safe from XSS)
+            analysisDiv.textContent = data.analysis;
+
+            // Display diagnostic data if available
+            if (data.diagnosticData) {
+                displayDiagnosticData(data.diagnosticData);
+            } else {
+                diagnosticDataDiv.style.display = 'none';
+            }
+
+            results.classList.add('active');
+            results.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function displayDiagnosticData(data) {
+            diagnosticDataDiv.style.display = 'block';
+
+            // Display pods
+            if (data.pods && data.pods.length > 0) {
+                podsSection.innerHTML = `
+                    <h4>Pods (${data.pods.length})</h4>
+                    ${data.pods.map(pod => `
+                        <div class="pod-item">
+                            <strong>${sanitizeHTML(pod.name)}</strong>
+                            <span class="badge ${getStatusBadge(pod.phase)}">${sanitizeHTML(pod.phase)}</span>
+                            <br>
+                            <small>Ready: ${sanitizeHTML(pod.ready)} | Restarts: ${sanitizeHTML(pod.restarts)}</small>
+                            ${pod.message ? `<br><small>Message: ${sanitizeHTML(pod.message)}</small>` : ''}
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                podsSection.innerHTML = '<p>No pods found or no issues detected.</p>';
+            }
+
+            // Display events
+            if (data.events && data.events.length > 0) {
+                eventsSection.innerHTML = `
+                    <h4>Events (${data.events.length})</h4>
+                    ${data.events.map(event => `
+                        <div class="event-item">
+                            <strong>${sanitizeHTML(event.type)}: ${sanitizeHTML(event.reason)}</strong>
+                            <br>
+                            <small>${sanitizeHTML(event.message)}</small>
+                            <br>
+                            <small>Count: ${sanitizeHTML(event.count)} | Last seen: ${formatTime(event.lastTimestamp)}</small>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                eventsSection.innerHTML = '<p>No recent warning/error events.</p>';
+            }
+        }
+
+        function getStatusBadge(phase) {
+            switch (phase?.toLowerCase()) {
+                case 'running':
+                    return 'badge-success';
+                case 'pending':
+                    return 'badge-warning';
+                case 'failed':
+                case 'crashloopbackoff':
+                    return 'badge-error';
+                default:
+                    return 'badge-warning';
+            }
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000); // seconds
+
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        }
+
+        function showError(message) {
+            error.textContent = `❌ Error: ${message}`; // textContent is XSS-safe
+            error.classList.add('active');
+            error.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Test server connection on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/api/health`);
+                if (response.ok) {
+                    console.log('✅ Server connected');
+                }
+            } catch (err) {
+                console.warn('⚠️ Server not reachable:', err.message);
+            }
+        });
+    </script>
+</body>
+
+</html>
