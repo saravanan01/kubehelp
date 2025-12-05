@@ -46,7 +46,8 @@ func (p *OllamaProvider) Analyze(ctx context.Context, prompt string) (string, er
 		"prompt": fmt.Sprintf(`You are a Kubernetes troubleshooting expert. Analyze the provided diagnostic data and provide actionable insights.
 
 %s`, prompt),
-		"stream": false,
+		"stream":  false,
+		"options": map[string]int32{"num_ctx": 8192},
 	}
 
 	jsonData, err := json.Marshal(requestBody)
