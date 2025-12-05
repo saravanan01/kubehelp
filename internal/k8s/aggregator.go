@@ -11,54 +11,55 @@ import (
 
 // DiagnosticData holds aggregated Kubernetes diagnostic information
 type DiagnosticData struct {
-	Namespace   string
-	Workloads   []string
-	Pods        []PodInfo
-	Events      []EventInfo
-	CollectedAt time.Time
-	ContextName string
+	Namespace   string      `json:"namespace,omitempty"`
+	Workloads   []string    `json:"workloads,omitempty"`
+	Pods        []PodInfo   `json:"pods,omitempty"`
+	Events      []EventInfo `json:"events,omitempty"`
+	CollectedAt time.Time   `json:"collectedAt"`
+	ContextName string      `json:"contextName,omitempty"`
 }
 
 // PodInfo contains relevant pod diagnostic information
 type PodInfo struct {
-	Name              string
-	Phase             string
-	Ready             string
-	Restarts          int32
-	Age               time.Duration
-	ContainerStatuses []ContainerStatus
-	NodeName          string
-	Conditions        []PodCondition
+	Name              string            `json:"name"`
+	Phase             string            `json:"phase"`
+	Ready             string            `json:"ready"`
+	Restarts          int32             `json:"restarts"`
+	Age               time.Duration     `json:"age"`
+	Message           string            `json:"message,omitempty"`
+	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty"`
+	NodeName          string            `json:"nodeName,omitempty"`
+	Conditions        []PodCondition    `json:"conditions,omitempty"`
 }
 
 // ContainerStatus holds container-level diagnostic info
 type ContainerStatus struct {
-	Name         string
-	Ready        bool
-	RestartCount int32
-	State        string
-	Reason       string
-	Message      string
-	Image        string
+	Name         string `json:"name"`
+	Ready        bool   `json:"ready"`
+	RestartCount int32  `json:"restartCount"`
+	State        string `json:"state,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	Message      string `json:"message,omitempty"`
+	Image        string `json:"image,omitempty"`
 }
 
 // PodCondition represents a pod condition
 type PodCondition struct {
-	Type    string
-	Status  string
-	Reason  string
-	Message string
+	Type    string `json:"type"`
+	Status  string `json:"status"`
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // EventInfo contains Kubernetes event information
 type EventInfo struct {
-	Type           string
-	Reason         string
-	Message        string
-	InvolvedObject string
-	FirstTimestamp time.Time
-	LastTimestamp  time.Time
-	Count          int32
+	Type           string    `json:"type"`
+	Reason         string    `json:"reason"`
+	Message        string    `json:"message"`
+	InvolvedObject string    `json:"involvedObject,omitempty"`
+	FirstTimestamp time.Time `json:"firstTimestamp,omitempty"`
+	LastTimestamp  time.Time `json:"lastTimestamp"`
+	Count          int32     `json:"count"`
 }
 
 // Aggregator collects diagnostic data from Kubernetes
